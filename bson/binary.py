@@ -217,6 +217,9 @@ class BinaryVectorDtype(Enum):
     INT8 = b"\x03"
     FLOAT32 = b"\x27"
     PACKED_BIT = b"\x10"
+    INT4 = (
+        b"\x02"
+    )  # TODO INVESTIGATE ints in [-16, 15]  # Fictional to test approach. See from_vector.
 
 
 # Map from bytes to enum value, for decoding.
@@ -263,9 +266,11 @@ class Binary(bytes):
         <https://bsonspec.org/spec.html>`_
         to use
 
-    .. versionchanged::
-    3.9 Support any bytes-like type that implements the buffer protocol.
-    4.9 Addition of vector subtype.
+    .. versionchanged:: 3.9
+       Support any bytes-like type that implements the buffer protocol.
+
+    .. versionchanged:: 4.9
+       Addition of vector subtype.
     """
 
     _type_marker = 5
@@ -400,6 +405,31 @@ class Binary(bytes):
         :param padding: For fractional bytes, number of bits to ignore at end of vector.
         :return: Binary packed data identified by dtype and padding.
         """
+        import itertools
+
+        if dtype == BinaryVectorDtype.INT4:  # TODO - Here for investigative purposes
+            assert all(-16 <= x < 16 for x in vector)
+            packed_data = bytearray()  # Use a bytearray to accumulate packed bytes
+            padding_bits = 0  # To track how many bits are padded
+
+            # Group integers into pairs using itertools.zip_longest
+            # This will pad the last group with 0 if the list length is odd
+            for first, second in itertools.zip_longest(vector[::2], vector[1::2], fillvalue=0):
+                # Mask to ensure only 4 bits are packed
+                first_half = first & 0xF
+                second_half = second & 0xF
+
+                # Pack two 4-bit integers into one byte
+                packed_byte = (first_half << 4) | second_half
+                packed_data.append(packed_byte)
+
+                # If second is a fill value (0), it means we padded with 4 bits
+                if second == 0 and len(vector) % 2 != 0:
+                    padding_bits = 4
+            metadata = struct.pack("<sB", dtype.value, padding_bits)
+            data = bytes(packed_data)
+            return cls(metadata + data, subtype=VECTOR_SUBTYPE)
+
         if dtype == BinaryVectorDtype.INT8:  # pack ints in [-128, 127] as signed int8
             format_str = "b"
         elif dtype == BinaryVectorDtype.PACKED_BIT:  # pack ints in [0, 255] as unsigned uint8

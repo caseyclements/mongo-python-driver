@@ -424,6 +424,10 @@ class Binary(bytes):
                 raise ValueError(f"padding does not apply to {dtype=}")
         elif dtype == BinaryVectorDtype.PACKED_BIT:  # pack ints in [0, 255] as unsigned uint8
             format_str = "B"
+            if padding > 7:
+                raise ValueError(f"padding ({padding} may only applies to final byte")
+            if padding and not vector:
+                raise ValueError("Cannot apply non-zero padding to an empty vector.")
         elif dtype == BinaryVectorDtype.FLOAT32:  # pack floats as float32
             format_str = "f"
             if padding:

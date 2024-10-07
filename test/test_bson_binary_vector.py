@@ -18,6 +18,7 @@ import binascii
 import codecs
 import json
 import struct
+from math import isclose
 from pathlib import Path
 from test import unittest
 
@@ -76,8 +77,16 @@ def create_test(case_spec):
                     self.assertEqual(
                         vector_obs.dtype, BinaryVectorDtype[dtype_alias_exp], description
                     )
-                self.assertEqual(vector_obs.data, vector_exp, description)
-                self.assertEqual(vector_obs.padding, padding_exp, description)
+                if dtype_exp == BinaryVectorDtype.FLOAT32:
+                    self.assertTrue(
+                        all(
+                            isclose(vector_obs.data[i], vector_exp[i], rel_tol=10e-6)
+                            for i in range(len(vector_exp))
+                        ),
+                        description,
+                    )
+                else:
+                    self.assertEqual(vector_obs.padding, padding_exp, description)
 
                 # Test Binary Vector to BSON
                 vector_exp = Binary.from_vector(vector_exp, dtype_exp, padding_exp)

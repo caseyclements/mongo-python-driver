@@ -18,9 +18,10 @@ import binascii
 import codecs
 import json
 import struct
-from math import isclose
 from pathlib import Path
 from test import unittest
+
+from pytest import approx
 
 from bson import decode, encode
 from bson.binary import Binary, BinaryVectorDtype
@@ -78,13 +79,7 @@ def create_test(case_spec):
                         vector_obs.dtype, BinaryVectorDtype[dtype_alias_exp], description
                     )
                 if dtype_exp == BinaryVectorDtype.FLOAT32:
-                    self.assertTrue(
-                        all(
-                            isclose(vector_obs.data[i], vector_exp[i], rel_tol=10e-6)
-                            for i in range(len(vector_exp))
-                        ),
-                        description,
-                    )
+                    self.assertTrue(vector_obs.data == approx(vector_exp), description)
                 else:
                     self.assertEqual(vector_obs.padding, padding_exp, description)
 
